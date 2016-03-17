@@ -79,6 +79,7 @@
 #include "light_dev.h"
 #include "curtain_dev.h"
 #include "device_config.h"
+#include "cJSON.h"
 
 /******************************************************
  *                      Macros
@@ -107,8 +108,7 @@
 /******************************************************
  *               Static Function Declarations
  ******************************************************/
-static void light_keypad_handler( uart_key_code_t code, uart_key_event_t event );
-static void curtain_keypad_handler( uart_key_code_t code, uart_key_event_t event );
+static void keypad_handler( uart_key_code_t key_code, uart_key_event_t event );
 static wiced_result_t device_init();
 static void report_curtain_pos(void *arg);
 static void report_light_status(void *arg);
@@ -116,21 +116,6 @@ static void report_light_status(void *arg);
 /******************************************************
  *               Variable Definitions
  ******************************************************/
-#if 0
-static const configuration_entry_t app_config[] =
-{
-    {"configured", DCT_OFFSET(smart_home_app_dct_t, device_configured),  4, CONFIG_UINT8_DATA },
-	{"device type", DCT_OFFSET(smart_home_app_dct_t, dev_type),  4, CONFIG_UINT8_DATA },
-	{"device index", DCT_OFFSET(smart_home_app_dct_t, dev_index),	 4, CONFIG_UINT8_DATA },
-    {"device name", DCT_OFFSET(smart_home_app_dct_t, dev_name),	 32, CONFIG_STRING_DATA },
-	{"light status", DCT_OFFSET(smart_home_app_dct_t, specific.light_config.light_status),   4, CONFIG_UINT8_DATA },
-    {"calibrated", DCT_OFFSET(smart_home_app_dct_t, specific.curtain_config.calibrated),  4, CONFIG_UINT8_DATA },
-	{"curr_pos_ms", DCT_OFFSET(smart_home_app_dct_t, specific.curtain_config.current_pos_ms),  4, CONFIG_UINT32_DATA },
-	{"full_pos_ms", DCT_OFFSET(smart_home_app_dct_t, specific.curtain_config.full_pos_ms),  4, CONFIG_UINT32_DATA },
-    {0,0,0,0}
-};
-#endif
-
 static uart_keypad_t device_keypad;
 glob_info_t this_dev;
 //static wiced_semaphore_t link_up_semaphore;
@@ -139,6 +124,147 @@ static const msg_type_t msg_bst_control = {0x42, 0x53, 0x54};
 /******************************************************
  *               Function Definitions
  ******************************************************/
+/* Parse text to JSON, then render back to text, and print! */
+void doit(char *text)
+{
+	char *out;cJSON *json;
+	
+	json=cJSON_Parse(text);
+	if (!json) {printf("Error before: [%s]\n",cJSON_GetErrorPtr());}
+	else
+	{
+		out=cJSON_Print(json);
+		cJSON_Delete(json);
+		printf("%s\n",out);
+		free(out);
+	}
+}
+
+/* Read a file, parse, render back, etc. */
+void dofile(char *filename)
+{
+	FILE *f;long len;char *data;
+	
+	f=fopen(filename,"rb");fseek(f,0,SEEK_END);len=ftell(f);fseek(f,0,SEEK_SET);
+	data=(char*)malloc(len+1);fread(data,1,len,f);fclose(f);
+	doit(data);
+	free(data);
+}
+
+/* Used by some code below as an example datatype. */
+struct record {const char *precision;double lat,lon;const char *address,*city,*state,*zip,*country; };
+
+/* Create a bunch of objects as demonstration. */
+void create_objects()
+{
+	cJSON *root,*fmt,*img,*thm,*fld;char *out;int i;	/* declare a few. */
+	/* Our "days of the week" array: */
+	const char *strings[7]={"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
+	/* Our matrix: */
+	int numbers[3][3]={{0,-1,0},{1,0,0},{0,0,1}};
+	/* Our "gallery" item: */
+	int ids[4]={116,943,234,38793};
+	/* Our array of "records": */
+	struct record fields[2]={
+		{"zip",37.7668,-1.223959e+2,"","SAN FRANCISCO","CA","94107","US"},
+		{"zip",37.371991,-1.22026e+2,"","SUNNYVALE","CA","94085","US"}};
+
+	/* Here we construct some JSON standards, from the JSON site. */
+	
+	/* Our "Video" datatype: */
+	root=cJSON_CreateObject();	
+	cJSON_AddItemToObject(root, "name", cJSON_CreateString("Jack (\"Bee\") Nimble"));
+	cJSON_AddItemToObject(root, "format", fmt=cJSON_CreateObject());
+	cJSON_AddStringToObject(fmt,"type",		"rect");
+	cJSON_AddNumberToObject(fmt,"width",		1920);
+	cJSON_AddNumberToObject(fmt,"height",		1080);
+	cJSON_AddFalseToObject (fmt,"interlace");
+	cJSON_AddNumberToObject(fmt,"frame rate",	24);
+	
+	out=cJSON_Print(root);	cJSON_Delete(root);	printf("%s\n",out);	free(out);	/* Print to text, Delete the cJSON, print it, release the string. */
+
+	/* Our "days of the week" array: */
+	root=cJSON_CreateStringArray(strings,7);
+
+	out=cJSON_Print(root);	cJSON_Delete(root);	printf("%s\n",out);	free(out);
+
+	/* Our matrix: */
+	root=cJSON_CreateArray();
+	for (i=0;i<3;i++) cJSON_AddItemToArray(root,cJSON_CreateIntArray(numbers[i],3));
+
+/*	cJSON_ReplaceItemInArray(root,1,cJSON_CreateString("Replacement")); */
+	
+	out=cJSON_Print(root);	cJSON_Delete(root);	printf("%s\n",out);	free(out);
+
+
+	/* Our "gallery" item: */
+	root=cJSON_CreateObject();
+	cJSON_AddItemToObject(root, "Image", img=cJSON_CreateObject());
+	cJSON_AddNumberToObject(img,"Width",800);
+	cJSON_AddNumberToObject(img,"Height",600);
+	cJSON_AddStringToObject(img,"Title","View from 15th Floor");
+	cJSON_AddItemToObject(img, "Thumbnail", thm=cJSON_CreateObject());
+	cJSON_AddStringToObject(thm, "Url", "http:/*www.example.com/image/481989943");
+	cJSON_AddNumberToObject(thm,"Height",125);
+	cJSON_AddStringToObject(thm,"Width","100");
+	cJSON_AddItemToObject(img,"IDs", cJSON_CreateIntArray(ids,4));
+
+	out=cJSON_Print(root);	cJSON_Delete(root);	printf("%s\n",out);	free(out);
+
+	/* Our array of "records": */
+
+	root=cJSON_CreateArray();
+	for (i=0;i<2;i++)
+	{
+		cJSON_AddItemToArray(root,fld=cJSON_CreateObject());
+		cJSON_AddStringToObject(fld, "precision", fields[i].precision);
+		cJSON_AddNumberToObject(fld, "Latitude", fields[i].lat);
+		cJSON_AddNumberToObject(fld, "Longitude", fields[i].lon);
+		cJSON_AddStringToObject(fld, "Address", fields[i].address);
+		cJSON_AddStringToObject(fld, "City", fields[i].city);
+		cJSON_AddStringToObject(fld, "State", fields[i].state);
+		cJSON_AddStringToObject(fld, "Zip", fields[i].zip);
+		cJSON_AddStringToObject(fld, "Country", fields[i].country);
+	}
+	
+/*	cJSON_ReplaceItemInObject(cJSON_GetArrayItem(root,1),"City",cJSON_CreateIntArray(ids,4)); */
+	
+	out=cJSON_Print(root);	cJSON_Delete(root);	printf("%s\n",out);	free(out);
+
+}
+
+void application_start_bak( )
+{
+	/* Initialise the device */
+    wiced_init( );
+	
+	/* a bunch of json: */
+	char text1[]="{\n\"name\": \"Jack (\\\"Bee\\\") Nimble\", \n\"format\": {\"type\":       \"rect\", \n\"width\":      1920, \n\"height\":     1080, \n\"interlace\":  false,\"frame rate\": 24\n}\n}";	
+	char text2[]="[\"Sunday\", \"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\", \"Saturday\"]";
+	char text3[]="[\n    [0, -1, 0],\n    [1, 0, 0],\n    [0, 0, 1]\n	]\n";
+	char text4[]="{\n		\"Image\": {\n			\"Width\":  800,\n			\"Height\": 600,\n			\"Title\":  \"View from 15th Floor\",\n			\"Thumbnail\": {\n				\"Url\":    \"http:/*www.example.com/image/481989943\",\n				\"Height\": 125,\n				\"Width\":  \"100\"\n			},\n			\"IDs\": [116, 943, 234, 38793]\n		}\n	}";
+	char text5[]="[\n	 {\n	 \"precision\": \"zip\",\n	 \"Latitude\":  37.7668,\n	 \"Longitude\": -122.3959,\n	 \"Address\":   \"\",\n	 \"City\":      \"SAN FRANCISCO\",\n	 \"State\":     \"CA\",\n	 \"Zip\":       \"94107\",\n	 \"Country\":   \"US\"\n	 },\n	 {\n	 \"precision\": \"zip\",\n	 \"Latitude\":  37.371991,\n	 \"Longitude\": -122.026020,\n	 \"Address\":   \"\",\n	 \"City\":      \"SUNNYVALE\",\n	 \"State\":     \"CA\",\n	 \"Zip\":       \"94085\",\n	 \"Country\":   \"US\"\n	 }\n	 ]";
+
+	/* Process each json textblock by parsing, then rebuilding: */
+	//doit(text1);
+	//doit(text2);	
+	//doit(text3);
+	//doit(text4);
+	//doit(text5);
+
+	/* Parse standard testfiles: */
+/*	dofile("../../tests/test1"); */
+/*	dofile("../../tests/test2"); */
+/*	dofile("../../tests/test3"); */
+/*	dofile("../../tests/test4"); */
+/*	dofile("../../tests/test5"); */
+
+	/* Now some samplecode for building objects concisely: */
+	create_objects();
+	
+	return 0;
+}
+
 void application_start( )
 {
     /* Initialise the device */
@@ -160,7 +286,17 @@ void application_start( )
 static wiced_result_t device_init()
 {
 	smart_home_app_dct_t* dct_app;
+    platform_dct_wifi_config_t* dct_wifi_config          = NULL;
 	wiced_result_t res;
+
+	/* get the wi-fi config section for modifying, any memory allocation required would be done inside wiced_dct_read_lock() */
+    wiced_dct_read_lock( (void**) &dct_wifi_config, WICED_TRUE, DCT_WIFI_CONFIG_SECTION, 0, sizeof( *dct_wifi_config ) );
+
+    /* Print original MAC addresses */
+    this_dev.mac_addr = dct_wifi_config->mac_address;
+
+    /* release the read lock */
+    wiced_dct_read_unlock( dct_wifi_config, WICED_TRUE );
 	
 	if(	wiced_dct_read_lock( (void**) &dct_app, WICED_TRUE, DCT_APP_SECTION, 0, sizeof( *dct_app ) ) != WICED_SUCCESS)
 	{
@@ -168,90 +304,72 @@ static wiced_result_t device_init()
     }
 	this_dev.configured = dct_app->device_configured;
 	this_dev.dev_type = dct_app->dev_type;
-	this_dev.dev_index = dct_app->dev_index;
+	this_dev.light_dev_enable = dct_app->light_dev_enable;
+	this_dev.curtain_dev_enable = dct_app->curtain_dev_enable;
 	strncpy(this_dev.dev_name, dct_app->dev_name, sizeof(this_dev.dev_name));
 	WPRINT_APP_INFO(("this_dev.dev_name is %s\n", this_dev.dev_name));
 	wiced_dct_read_unlock( dct_app, WICED_TRUE );
 
-	if(this_dev.configured == WICED_FALSE) {
-		return WICED_ERROR;
-	}		
-
 	if(this_dev.dev_type == DEV_TYPE_MASTER) {
-		this_dev.parse_socket_msg_fun = master_parse_socket_msg;
 		uart_receive_enable(master_process_uart_msg);
-		user_receive_enable();
-	}else if(this_dev.dev_type == DEV_TYPE_LIGHT || this_dev.dev_type == DEV_TYPE_CURTAIN) {
-		if(this_dev.dev_type == DEV_TYPE_LIGHT) {
-			res = light_dev_init(&this_dev.specific.light_dev, WICED_HARDWARE_IO_WORKER_THREAD, report_light_status);
+		master_receive_enable();
+	}else {
+		if(this_dev.light_dev_enable == WICED_TRUE) {
+			res = light_dev_init(&this_dev.light_dev, WICED_HARDWARE_IO_WORKER_THREAD, report_light_status);
 			if(res != WICED_SUCCESS) {
 				return WICED_ERROR;
 			}
-			this_dev.parse_socket_msg_fun = light_parse_socket_msg;
-			//this_dev.device_keypad_handler = light_keypad_handler;
-			uart_keypad_enable( &device_keypad, WICED_HARDWARE_IO_WORKER_THREAD, light_keypad_handler, 3000);
-		} else if(this_dev.dev_type == DEV_TYPE_CURTAIN) {
-			res = curtain_init(&this_dev.specific.curtain, WICED_HARDWARE_IO_WORKER_THREAD, report_curtain_pos);
+		}
+		if(this_dev.curtain_dev_enable == WICED_TRUE) {
+			res = curtain_dev_init(&this_dev.curtain_dev, WICED_HARDWARE_IO_WORKER_THREAD, report_curtain_pos);
 			if( res != WICED_SUCCESS) {
 				return WICED_ERROR;
 			}
-			this_dev.parse_socket_msg_fun = curtain_parse_socket_msg;
-			//this_dev.device_keypad_handler = curtain_keypad_handler;
-			uart_keypad_enable( &device_keypad, WICED_HARDWARE_IO_WORKER_THREAD, curtain_keypad_handler, 3000);
 		}
-		pre_receive_enable();
+		uart_keypad_enable( &device_keypad, WICED_HARDWARE_IO_WORKER_THREAD, keypad_handler, 3000);
+		slave_receive_enable();
 	}
-	next_receive_enable();
 	return WICED_SUCCESS;
 }
 
-static void light_keypad_handler( uart_key_code_t key_code, uart_key_event_t event )
+static void keypad_handler( uart_key_code_t key_code, uart_key_event_t event )
 {
 	int i;
-	light_dev_t *light_dev = this_dev.specific.light_dev;
+	light_dev_t *light_dev = this_dev.light_dev;
+	curtain_dev_t *curtain_dev = this_dev.curtain_dev;
 	//WPRINT_APP_INFO(("light_keypad_handler: key_code = 0x%.2x, key_event = %d\n", code, event));
 
-    if ( event == KEY_EVENT_RELEASED )
-    {
-		for(i = 0; i < light_dev->light_count; i++) {
-			if(key_code == light_dev->light_list[i].key_code) {
-				switch_light_status(&light_dev->light_list[i]);
+    if ( event == KEY_EVENT_RELEASED ) {
+		if(light_dev != NULL) {
+			for(i = 0; i < light_dev->light_count; i++) {
+				if(key_code == light_dev->light_list[i].key_code) {
+					switch_light_status(&light_dev->light_list[i]);
+					break;
+				}
 			}
 		}
-    }
-}
-
-static void curtain_keypad_handler( uart_key_code_t code, uart_key_event_t event )
-{
-	//WPRINT_APP_INFO(("curtain_keypad_handler: key_code = 0x%.2x, key_event = %d\n", code, event));
-
-    if ( event == KEY_EVENT_RELEASED )
-    {
-        switch ( code )
-        {
-            case CURTAIN_KEY_OPEN:
-				curtain_open(this_dev.specific.curtain);
-				break;
-
-            case CURTAIN_KEY_CLOSE:
-				curtain_close(this_dev.specific.curtain);
-				break;
-
-			case CURTAIN_KEY_STOP:
-				curtain_stop(this_dev.specific.curtain);
-				break;
-				
-            default:
-                break;
-        }
-    }
-	else if( event == KEY_EVENT_LONG_LONG_PRESSED) {
+		if(curtain_dev != NULL) {
+			for(i = 0; i < curtain_dev->curtain_count; i++) {
+				if(key_code == curtain_dev->curtain_list[i].key_open) {
+					curtain_open(&curtain_dev->curtain_list[i]);
+				} else if(key_code == curtain_dev->curtain_list[i].key_close) {
+					curtain_close(&curtain_dev->curtain_list[i]);
+				} else if(key_code == curtain_dev->curtain_list[i].key_stop) {
+					curtain_stop(&curtain_dev->curtain_list[i]);
+				}
+			}
+		}
+    } else if( event == KEY_EVENT_LONG_LONG_PRESSED) {
 		WPRINT_APP_INFO(("KEY_EVENT_LONG_LONG_PRESSED\n"));
-		if (code == CURTAIN_KEY_OPEN) {
-			curtain_cali_start(this_dev.specific.curtain);
+		if(curtain_dev != NULL) {
+			for(i = 0; i < curtain_dev->curtain_count; i++) {
+				if(key_code == curtain_dev->curtain_list[i].key_open) {
+					curtain_cali_start(&curtain_dev->curtain_list[i]);
+					break;
+				}
+			}
 		}
 	}
-	return;
 }
 
 static void report_curtain_pos(void *arg)
@@ -262,14 +380,11 @@ static void report_curtain_pos(void *arg)
 	WPRINT_APP_INFO(("report_curtain_pos\n"));
 	
 	memset(&msg, 0, sizeof(msg_t));
-	memcpy(msg.h.msg_type, msg_bst_control, sizeof(msg.h.msg_type));
-	msg.h.src_dev_index = this_dev.dev_index;
-	msg.h.dst_dev_index = 0;
-	msg.h.fun_type = CURTAIN_FUN_REPORT_POS;
-	msg.byte8 = get_curtain_pos(curtain);
-	msg.h.data_len = 1;
-	//send_udp_packet(&sta_socket, this_dev.pre_dev_ip, &msg, sizeof(msg));
-	send_to_pre_dev((char *)&msg, sizeof(msg_head_t) + msg.h.data_len);
+	memcpy(msg.msg_type, msg_bst_control, sizeof(msg.msg_type));
+	msg.fun_type = CURTAIN_FUN_REPORT_POS;
+	msg.fun_data = get_curtain_pos(curtain);
+	msg.data_len = 0;
+	send_to_pre_dev((char *)&msg, MSG_HEAD_LEN + msg.data_len);
 	return;
 }
 
@@ -280,14 +395,11 @@ static void report_light_status(void *arg)
 
 	WPRINT_APP_INFO(("report_light_status\n"));
 	memset(&msg, 0, sizeof(msg_t));
-	memcpy(msg.h.msg_type, msg_bst_control, sizeof(msg.h.msg_type));
-	msg.h.src_dev_index = this_dev.dev_index;
-	msg.h.dst_dev_index = 0;
-	msg.h.fun_type = LIGHT_FUN_REPORT_STATE;
-	msg.h.data_len = 2;
-	get_lights_status(&msg.byte8, &msg.byte9);
-	send_to_pre_dev((char *)&msg, sizeof(msg_head_t) + msg.h.data_len);
-	//send_udp_packet(&sta_socket, this_dev.pre_dev_ip, &msg, sizeof(msg));
+	memcpy(msg.msg_type, msg_bst_control, sizeof(msg.msg_type));
+	msg.fun_type = LIGHT_FUN_REPORT_STATE;
+	msg.data_len = 0;
+	msg.fun_data = get_light_status(light->light_no);
+	send_to_pre_dev((char *)&msg, MSG_HEAD_LEN + msg.data_len);
 	return;
 }
 

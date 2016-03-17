@@ -47,23 +47,21 @@ typedef void (*device_keypad_handler_t)(uart_key_code_t, uart_key_event_t);
 
 typedef struct {
 	wiced_bool_t configured;
-	uint8_t dev_index;
+	wiced_bool_t light_dev_enable;
+	wiced_bool_t curtain_dev_enable;
 	uint8_t dev_type;
+	uint8_t net_mode;
 	uint8_t dev_name[32];
+	wiced_mac_t mac_addr;
 	wiced_ip_address_t *pre_dev_ip;
 	wiced_ip_address_t *next_dev_ip;
-	wiced_ip_address_t ctrl_ip_addr;
-	uint16_t ctrl_port;
-	int cur_ctrl_flag;
 	wiced_timed_event_t udp_delay_event;
-	parse_socket_msg_fun_t parse_socket_msg_fun;
+	//parse_socket_msg_fun_t parse_socket_msg_fun;
 	parse_uart_msg_fun_t parse_uart_msg_fun;
 	device_keypad_handler_t device_keypad_handler;
 	//uart_receive_handler_t uart_receive_handler;
-	union {
-		light_dev_t *light_dev;
-		curtain_t *curtain;
-	} specific;
+	light_dev_t *light_dev;
+	curtain_dev_t *curtain_dev;
 } glob_info_t;
 
 

@@ -33,15 +33,8 @@ extern "C" {
  *                   Enumerations
  ******************************************************/
 typedef enum {
-	LIGHT_FUN_SET_STATE = 0x11,
-	LIGHT_FUN_GET_STATE = 0x12,
-	LIGHT_FUN_REPORT_STATE = 0x13,
-}light_fun_t;
-
-typedef enum {
 	LIGHT_STATUS_OFF = 0x00,
 	LIGHT_STATUS_ON = 0x01,
-	LIGHT_STATUS_UNKNOWN = 0x02,
 }light_status_t;
 
 /******************************************************
@@ -57,13 +50,14 @@ typedef struct light {
 	uart_key_code_t key_code;
 	relay_gpio_t relay_io;
 	light_status_t status;
-	struct light_dev *owner;
+	uint8_t light_name[32];
+	//struct light_dev *owner;
 }light_t;
 
 typedef struct light_dev {
 	uint32_t light_count;
-	//light_t light_list[MAX_LIGHT_COUNT];
-	light_t *light_list;
+	light_t light_list[MAX_LIGHT_COUNT];
+	//light_t *light_list;
 	light_handler_t  function;
 	//void (*function)(void);
 	wiced_worker_thread_t* thread;
@@ -77,10 +71,9 @@ typedef struct light_dev {
  *               Function Declarations
  ******************************************************/
 wiced_result_t light_dev_init(light_dev_t **light_dev_arg, wiced_worker_thread_t* thread, light_handler_t function);
-int set_light_status(uint8_t light_no, light_status_t status);
+void set_light_status(light_t *light, light_status_t status);
+light_status_t get_light_status(light_t *light);
 void switch_light_status(light_t *light);
-light_status_t get_light_status(uint8_t light_no);
-void get_lights_status(uint8_t *light_count, uint8_t *lights_status);
 
 #ifdef __cplusplus
 } /* extern "C" */

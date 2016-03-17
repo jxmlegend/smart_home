@@ -26,13 +26,13 @@ extern "C" {
 /******************************************************
  *                   Enumerations
  ******************************************************/
-#if 0
+#if 1
 typedef enum {
-	RELAY_GPIO_1 = WICED_GPIO_34,
-	RELAY_GPIO_2 = WICED_GPIO_35,
+	RELAY_GPIO_1 = 99,
+	RELAY_GPIO_2 = 100,
 	RELAY_GPIO_3 = 101,
 	RELAY_GPIO_4 = 102
-}relay_channel_t;
+}relay_gpio_t;
 #else
 typedef enum {
     RELAY_GPIO_1 = WICED_GPIO_34,

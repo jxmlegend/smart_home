@@ -22,12 +22,7 @@
 /******************************************************
  *                   Enumerations
  ******************************************************/
-enum dev_type{
-	//DEV_TYPE_UNKNOWN = 0x00,
-	DEV_TYPE_MASTER = 0x00,
-	DEV_TYPE_LIGHT = 0x01,
-	DEV_TYPE_CURTAIN = 0x02,
-};
+
 
 /******************************************************
  *                 Type Definitions
@@ -52,7 +47,6 @@ DEFINE_APP_DCT(smart_home_app_dct_t)
 	.dev_index = 0,
 	//.dev_name_length = 4,
 	.dev_name = "Unnamed device",
-	.specific.light_config.light_status = 0x00,
 };
 
 /******************************************************

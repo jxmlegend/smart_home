@@ -19,7 +19,8 @@ $(NAME)_SOURCES := smart_home.c \
 				   curtain_dev.c \
 				   uart_master_ctrl.c \
 				   net_interface.c \
-				   comm.c
+				   comm.c \
+				   cJSON.c
 
 $(NAME)_RESOURCES  := apps/smart_home/device_config.html \
                       images/brcmlogo.png \

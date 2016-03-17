@@ -110,6 +110,7 @@
     </table>
     <noscript><h2>Javascript is required for this page to work correctly.</h2></noscript>
     <h3 style="text-align:center;">Application Settings</h3>
+	<h4 style="text-align:center;">Global settings</h3>
     <form id="settings_form" action="">
       <table style="margin-left:auto;margin-right:auto;" >
             <tbody>
@@ -133,23 +134,8 @@
             <tr><td class="nameid">Device type</td>
             <td><select type="text" class="ctrlid" name="dev_type" id="dev_type">
 				<option value=0>master</option>
-                <option value=1>light</option>
-                <option value=2>curtain</option>
+                <option value=1>slave</option>
             </select></td></tr>
-            <tr><td class="nameid">Device node index</td>
-            <td><select type="number" class="ctrlid" name="dev_index" id="dev_index">
-				<option value="0">0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-            </select></td></tr>
-			<tr><td class="nameid">Device name</td>
-            <td><input type="text" class="ctrlid" name="dev_name" value="" id="dev_name" /></td></tr>
     <script type="text/javascript">
         function init_form() {
             document.getElementById("ap_ssid").value = jsonObj.ap_ssid;
@@ -184,5 +170,188 @@
         </tbody>
       </table>
     </form>
+	<h4 style="text-align:center;">Light Settings</h3>
+    <form id="settings_form" action="">
+      <table style="margin-left:auto;margin-right:auto;" >
+            <tbody>
+            <tr>
+			<td>light1   name <input type="text" class="ctrlid" name="ap_ssid" value="" id="ap_ssid" /></td>
+			<td>relay io<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>relay_io_1</option>
+                <option value=1>relay_io_2</option>
+                <option value=2>relay_io_3</option>
+				<option value=3>relay_io_4</option>
+            </select></td>
+			<td>key<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>key_1</option>
+                <option value=1>key_2</option>
+                <option value=2>key_3</option>
+				<option value=3>key_4</option>
+				<option value=2>key_5</option>
+				<option value=3>key_6</option>
+            </select></td>
+            </tr>
+            <tr>
+			<td>light2   name <input type="text" class="ctrlid" name="ap_ssid" value="" id="ap_ssid" /></td>
+			<td>relay io<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>relay_io_1</option>
+                <option value=1>relay_io_2</option>
+                <option value=2>relay_io_3</option>
+				<option value=3>relay_io_4</option>
+            </select></td>
+			<td>key<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>key_1</option>
+                <option value=1>key_2</option>
+                <option value=2>key_3</option>
+				<option value=3>key_4</option>
+				<option value=2>key_5</option>
+				<option value=3>key_6</option>
+            </select></td>
+            </tr>
+            <tr>
+			<td>light3   name <input type="text" class="ctrlid" name="ap_ssid" value="" id="ap_ssid" /></td>
+			<td>relay io<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>relay_io_1</option>
+                <option value=1>relay_io_2</option>
+                <option value=2>relay_io_3</option>
+				<option value=3>relay_io_4</option>
+            </select></td>
+			<td>key<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>key_1</option>
+                <option value=1>key_2</option>
+                <option value=2>key_3</option>
+				<option value=3>key_4</option>
+				<option value=2>key_5</option>
+				<option value=3>key_6</option>
+            </select></td>
+            </tr>
+            <tr>
+			<td>light4   name <input type="text" class="ctrlid" name="ap_ssid" value="" id="ap_ssid" /></td>
+			<td>relay io<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>relay_io_1</option>
+                <option value=1>relay_io_2</option>
+                <option value=2>relay_io_3</option>
+				<option value=3>relay_io_4</option>
+            </select></td>
+			<td>key<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>key_1</option>
+                <option value=1>key_2</option>
+                <option value=2>key_3</option>
+				<option value=3>key_4</option>
+				<option value=2>key_5</option>
+				<option value=3>key_6</option>
+            </select></td>
+            </tr>
+    <script type="text/javascript">
+        function init_form() {
+            document.getElementById("ap_ssid").value = jsonObj.ap_ssid;
+            document.getElementById("ap_passwd").value = jsonObj.ap_passwd;
+            var hidden_ssids = document.getElementsByName("hidden_ssid");
+            var i = 0;
+            for (i = 0; i < hidden_ssids.length; i++) {//遍历单选框
+                if (hidden_ssids[i].value == jsonObj.hidden_ssid) {
+                    hidden_ssids[i].checked = true;
+                } else {
+                    hidden_ssids[i].checked = false;
+                }
+            }
+			document.getElementById("sta_ssid").value = jsonObj.sta_ssid;
+            document.getElementById("sta_passwd").value = jsonObj.sta_passwd;
+            document.getElementById("dev_type").value = jsonObj.dev_type;
+            document.getElementById("dev_index").value = jsonObj.dev_index;
+			document.getElementById("dev_name").value = jsonObj.dev_name;
+        }
+
+<WICED:section suffix="_dev_settings_bottom"/>
+
+        init_form();
+    </script>
+        <tr>
+          <td><input type="button" value="Save Light settings" onclick="save_settings();" style="float:right" /></td>
+		</tr>
+		<tr>
+		  <td colspan="2"><div align="center" id="config_res"></div></td>
+		</tr>
+        </tbody>
+      </table>
+    </form>
+	<h4 style="text-align:center;">Curtain Settings</h3>
+    <form id="settings_form" action="">
+      <table style="margin-left:auto;margin-right:auto;" >
+            <tbody>
+            <tr>
+			<td>curtain1   name <input type="text" class="ctrlid" name="ap_ssid" value="" id="ap_ssid" /></td>
+			<td>positive io<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>relay_io_1</option>
+                <option value=1>relay_io_2</option>
+                <option value=2>relay_io_3</option>
+				<option value=3>relay_io_4</option>
+            </select></td>
+			<td>negative io<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>relay_io_1</option>
+                <option value=1>relay_io_2</option>
+                <option value=2>relay_io_3</option>
+				<option value=3>relay_io_4</option>
+            </select></td>
+			<td>Open Key<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>key_1</option>
+                <option value=1>key_2</option>
+                <option value=2>key_3</option>
+				<option value=3>key_4</option>
+				<option value=2>key_5</option>
+				<option value=3>key_6</option>
+            </select></td>
+			<td>Close Key<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>key_1</option>
+                <option value=1>key_2</option>
+                <option value=2>key_3</option>
+				<option value=3>key_4</option>
+				<option value=2>key_5</option>
+				<option value=3>key_6</option>
+            </select></td>
+			<td>Stop Key<select type="text" class="ctrlid" name="dev_type" id="dev_type">
+				<option value=0>key_1</option>
+                <option value=1>key_2</option>
+                <option value=2>key_3</option>
+				<option value=3>key_4</option>
+				<option value=2>key_5</option>
+				<option value=3>key_6</option>
+            </select></td>
+            </tr>			
+    <script type="text/javascript">
+        function init_form() {
+            document.getElementById("ap_ssid").value = jsonObj.ap_ssid;
+            document.getElementById("ap_passwd").value = jsonObj.ap_passwd;
+            var hidden_ssids = document.getElementsByName("hidden_ssid");
+            var i = 0;
+            for (i = 0; i < hidden_ssids.length; i++) {//遍历单选框
+                if (hidden_ssids[i].value == jsonObj.hidden_ssid) {
+                    hidden_ssids[i].checked = true;
+                } else {
+                    hidden_ssids[i].checked = false;
+                }
+            }
+			document.getElementById("sta_ssid").value = jsonObj.sta_ssid;
+            document.getElementById("sta_passwd").value = jsonObj.sta_passwd;
+            document.getElementById("dev_type").value = jsonObj.dev_type;
+            document.getElementById("dev_index").value = jsonObj.dev_index;
+			document.getElementById("dev_name").value = jsonObj.dev_name;
+        }
+
+<WICED:section suffix="_dev_settings_bottom"/>
+
+        init_form();
+    </script>
+        <tr>
+          <td><input type="button" value="Save Curtain settings" onclick="save_settings();" style="float:right" /></td>
+		</tr>
+		<tr>
+		  <td colspan="2"><div align="center" id="config_res"></div></td>
+		</tr>
+        </tbody>
+      </table>
+    </form>
+	
+	
 </body>
 </html>

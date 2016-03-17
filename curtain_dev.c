@@ -47,9 +47,9 @@
 /******************************************************
  *               Static Function Declarations
  ******************************************************/
-static void motor_positive_run();
-static void motor_negative_run();
-static void motor_stop();
+static void motor_positive_run(motor_t *motor);
+static void motor_negative_run(motor_t *motor);
+static void motor_stop(motor_t *motor);
 //static void motor_positive_pulse();
 //static void motor_negative_pulse();
 static void set_curtain_pos_ms(curtain_t *curtain, curtain_pos_ms_t pos_ms);
@@ -64,7 +64,8 @@ static void set_pos_step2_timer_handler( void* arg );
  *               Variable Definitions
  ******************************************************/
 //static curtain_t *curtain_p;
-static uint32_t motor_state;
+
+static curtain_dev_t *curtain_dev;
 
 /******************************************************
  *               Function Definitions
@@ -93,7 +94,7 @@ curtain_t * curtain_init_bak(wiced_worker_thread_t* thread, uart_keypad_handler_
 	
 	return curtain;
 }
-#endif
+
 wiced_result_t curtain_init(curtain_t **curtain_dev, wiced_worker_thread_t* thread, curtain_handler_t function)
 {
 	smart_home_app_dct_t*   dct_app;
@@ -119,6 +120,46 @@ wiced_result_t curtain_init(curtain_t **curtain_dev, wiced_worker_thread_t* thre
 	WPRINT_APP_INFO(("RELAY_GPIO_4 = %d\n", wiced_gpio_output_get(RELAY_GPIO_4)));
 	return WICED_SUCCESS;
 }
+#endif
+
+wiced_result_t curtain_dev_init(curtain_dev_t **curtain_dev_arg, wiced_worker_thread_t* thread, light_handler_t function)
+{
+	smart_home_app_dct_t*   dct_app;
+	//uint8_t light_status;
+	int i;
+
+	curtain_dev = (curtain_dev_t *) malloc_named("curtain_dev", sizeof(curtain_dev_t));
+    if ( curtain_dev == NULL ) {
+        return WICED_ERROR;
+    }
+	
+	memset( curtain_dev, 0, sizeof(curtain_dev_t) );
+	//curtain_dev->curtain_list = curtain_list;
+	//curtain_dev->curtain_count = sizeof(curtain_list)/sizeof(curtain_t);
+	curtain_dev->function   = function;
+    curtain_dev->thread     = thread;
+
+	wiced_dct_read_lock( (void**) &dct_app, WICED_TRUE, DCT_APP_SECTION, 0, sizeof( *dct_app ) );
+	//light_status = dct_app->specific.light_config.light_status;
+	curtain_dev->curtain_count = dct_app->curtain_dev_config.curtain_count;
+	for(i = 0; i < curtain_dev->curtain_count; i++) {
+		curtain_dev->curtain_list[i].curtain_no = dct_app->curtain_dev_config.curtain_config[i].curtain_no;
+		curtain_dev->curtain_list[i].calibrated= dct_app->curtain_dev_config.curtain_config[i].calibrated;
+		curtain_dev->curtain_list[i].motor.positive_io = dct_app->curtain_dev_config.curtain_config[i].gpio_open;
+		curtain_dev->curtain_list[i].motor.negative_io = dct_app->curtain_dev_config.curtain_config[i].gpio_close;
+		curtain_dev->curtain_list[i].key_open = dct_app->curtain_dev_config.curtain_config[i].key_open;
+		curtain_dev->curtain_list[i].key_close = dct_app->curtain_dev_config.curtain_config[i].key_close;
+		curtain_dev->curtain_list[i].key_stop = dct_app->curtain_dev_config.curtain_config[i].key_stop;
+		curtain_dev->curtain_list[i].current_pos_ms = dct_app->curtain_dev_config.curtain_config[i].current_pos_ms;
+		curtain_dev->curtain_list[i].full_pos_ms = dct_app->curtain_dev_config.curtain_config[i].full_pos_ms;
+		strncpy(curtain_dev->curtain_list[i].curtain_name, dct_app->curtain_dev_config.curtain_config[i].curtain_name, 32);
+	}
+	wiced_dct_read_unlock( dct_app, WICED_TRUE );
+
+	*curtain_dev_arg = curtain_dev;
+	
+	return WICED_SUCCESS;
+}
 
 void curtain_open(curtain_t *curtain)
 {
@@ -141,7 +182,7 @@ void curtain_open(curtain_t *curtain)
 		case CURTAIN_STATE_NONE:
 		case CURTAIN_STATE_CLOSING:
 			curtain->current_state = CURTAIN_STATE_OPENING;
-			motor_positive_run();
+			motor_positive_run(&curtain->motor);
 			break;
 
 		default:
@@ -171,7 +212,7 @@ void curtain_close(curtain_t *curtain)
 		case CURTAIN_STATE_NONE:
 		case CURTAIN_STATE_OPENING:
 			curtain->current_state = CURTAIN_STATE_CLOSING;
-			motor_negative_run();
+			motor_negative_run(&curtain->motor);
 			break;
 
 		default:
@@ -195,7 +236,7 @@ void curtain_stop(curtain_t *curtain)
 		curtain_cali_done(curtain);
 	} else if(state == CURTAIN_STATE_OPENING || state == CURTAIN_STATE_CLOSING) {
 		curtain->current_state = CURTAIN_STATE_NONE;
-		motor_stop();
+		motor_stop(&curtain->motor);
 	}
 #endif
 }
@@ -210,7 +251,7 @@ void curtain_cali_enable(curtain_t *curtain)
 void curtain_cali_start(curtain_t *curtain)
 {
 	if(curtain->current_state == CURTAIN_STATE_NONE) {
-		motor_positive_run();
+		motor_positive_run(&curtain->motor);
 		wiced_time_get_time(&curtain->last_op_timestamp);
 		curtain->current_state = CURTAIN_STATE_CALIBRATING;
 	}
@@ -222,7 +263,7 @@ void curtain_cali_done(curtain_t *curtain)
 	uint32_t current_time;
 
 	if(curtain->current_state == CURTAIN_STATE_CALIBRATING) {
-		motor_stop();
+		motor_stop(&curtain->motor);
 		
 		wiced_time_get_time(&current_time);
 		curtain->full_pos_ms = current_time - curtain->last_op_timestamp;
@@ -347,7 +388,7 @@ static wiced_result_t set_pos_step1_event_handler( void* arg )
 	wiced_time_get_time(&curtain->last_op_timestamp);
 	wiced_rtos_start_timer(&curtain->set_pos_timer);
 	curtain->current_state = CURTAIN_STATE_PROGRAMMING;
-	motor_negative_run();
+	motor_negative_run(&curtain->motor);
 
     return WICED_SUCCESS;
 }
@@ -358,7 +399,7 @@ static wiced_result_t set_pos_step2_event_handler( void* arg )
 #if 1
 	//WPRINT_APP_INFO(("set_pos_reopen_event_handler\n"));
 	//wiced_time_get_time(&curtain->last_op_timestamp);
-	motor_positive_run();
+	motor_positive_run(&curtain->motor);
 	wiced_rtos_start_timer(&curtain->set_pos_timer);
 	//curtain->current_state = CURTAIN_STATE_PROGRAMMING;
 #else
@@ -373,7 +414,7 @@ static wiced_result_t set_pos_stop_event_handler( void* arg )
 	curtain_t *curtain = (curtain_t *)arg;
 
 	curtain->current_state = CURTAIN_STATE_NONE;
-	motor_stop();
+	motor_stop(&curtain->motor);
 
     return WICED_SUCCESS;
 }
@@ -415,7 +456,7 @@ static wiced_result_t set_pos_stop_event_handler_bak( void* arg )
 }
 #endif
 
-static void motor_positive_run()
+static void motor_positive_run(motor_t *motor)
 {
 	WPRINT_APP_INFO(("motor_positive_run\n"));
 /*
@@ -427,13 +468,13 @@ static void motor_positive_run()
 		motor_state = 0;
 	}
 */
-	if(motor_state == 2)
-		wiced_gpio_output_low(RELAY_GPIO_2);
-	wiced_gpio_output_high(RELAY_GPIO_1);
-	motor_state = 1;
+	if(motor->state == NEGATIVE_RUNNING)
+		wiced_gpio_output_low(motor->negative_io);
+	wiced_gpio_output_high(motor->positive_io);
+	motor->state = POSITIVE_RUNNING;
 }
 
-static void motor_negative_run()
+static void motor_negative_run(motor_t *motor)
 {
 	WPRINT_APP_INFO(("motor_negative_run\n"));
 /*
@@ -445,13 +486,13 @@ static void motor_negative_run()
 		motor_state = 0;
 	}
 */
-	if(motor_state == 1)
-		wiced_gpio_output_low(RELAY_GPIO_1);
-	wiced_gpio_output_high(RELAY_GPIO_2);
-	motor_state = 2;
+	if(motor->state == POSITIVE_RUNNING)
+		wiced_gpio_output_low(motor->positive_io);
+	wiced_gpio_output_high(motor->negative_io);
+	motor->state = NEGATIVE_RUNNING;
 }
 
-static void motor_stop()
+static void motor_stop(motor_t *motor)
 {
 	WPRINT_APP_INFO(("motor_stop\n"));
 /*
@@ -462,9 +503,9 @@ static void motor_stop()
 	}
 	motor_state = 0;
 */
-	wiced_gpio_output_low(RELAY_GPIO_1);
-	wiced_gpio_output_low(RELAY_GPIO_2);
-	motor_state = 0;
+	wiced_gpio_output_low(motor->positive_io);
+	wiced_gpio_output_low(motor->negative_io);
+	motor->state= STOPPED;
 }
 #if 0
 static void motor_positive_pulse()

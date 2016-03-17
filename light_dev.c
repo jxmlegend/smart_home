@@ -45,8 +45,7 @@
 /******************************************************
  *               Static Function Declarations
  ******************************************************/
-static void set_light_status_internal(light_t *light, light_status_t status);
-static light_status_t get_light_status_internal(light_t *light);
+
 
 /******************************************************
  *               Variable Definitions
@@ -77,6 +76,7 @@ static light_t light_list[] =
 #endif
 };
 
+static light_dev_t *light_dev;
 
 /******************************************************
  *               Function Definitions
@@ -84,7 +84,6 @@ static light_t light_list[] =
 wiced_result_t light_dev_init(light_dev_t **light_dev_arg, wiced_worker_thread_t* thread, light_handler_t function)
 {
 	smart_home_app_dct_t*   dct_app;
-	light_dev_t *light_dev;
 	uint8_t light_status;
 	int i;
 
@@ -94,20 +93,31 @@ wiced_result_t light_dev_init(light_dev_t **light_dev_arg, wiced_worker_thread_t
     }
 	
 	memset( light_dev, 0, sizeof(light_dev_t) );
-	light_dev->light_list = light_list;
-	light_dev->light_count = sizeof(light_list)/sizeof(light_t);
+	//light_dev->light_list = light_list;
+	//light_dev->light_count = sizeof(light_list)/sizeof(light_t);
 	light_dev->function   = function;
     light_dev->thread     = thread;
 
 	wiced_dct_read_lock( (void**) &dct_app, WICED_TRUE, DCT_APP_SECTION, 0, sizeof( *dct_app ) );
-	light_status = dct_app->specific.light_config.light_status;
+	//light_status = dct_app->specific.light_config.light_status;
+	light_dev->light_count = dct_app->light_dev_config.light_count;
+	for(i = 0; i < light_dev->light_count; i++) {
+		light_dev->light_list[i].light_no = dct_app->light_dev_config.light_config[i].light_no;
+		light_dev->light_list[i].key_code = dct_app->light_dev_config.light_config[i].key_code;
+		light_dev->light_list[i].relay_io = dct_app->light_dev_config.light_config[i].relay_io;
+		light_dev->light_list[i].status = dct_app->light_dev_config.light_config[i].status;
+		strncpy(light_dev->light_list[i].light_name, dct_app->light_dev_config.light_config[i].light_name, 32);
+		set_light_status(light_dev->light_list[i].light_no, light_dev->light_list[i].status);
+	}
+	
 	wiced_dct_read_unlock( dct_app, WICED_TRUE );
-
+#if 0
 	for(i = 0; i < sizeof(light_list)/sizeof(light_t); i++) {
 		light_list[i].owner = light_dev;
 		light_list[i].status = light_status & (0x01 << i);
 		set_light_status_internal(&light_list[i], light_list[i].status);
 	}
+#endif
 	*light_dev_arg = light_dev;
 	
 	return WICED_SUCCESS;
@@ -115,81 +125,41 @@ wiced_result_t light_dev_init(light_dev_t **light_dev_arg, wiced_worker_thread_t
 
 void switch_light_status(light_t *light)
 {
-	wiced_bool_t gpio_status;
-	light_dev_t *light_dev = light->owner;
-
-	light_status_t status = get_light_status_internal(light);
+	light_status_t status = get_light_status(light);
 
 	if(status == LIGHT_STATUS_ON) {
-		set_light_status_internal(light, LIGHT_STATUS_OFF);
+		set_light_status(light, LIGHT_STATUS_OFF);
 	} else if(status == LIGHT_STATUS_OFF) {
-		set_light_status_internal(light, LIGHT_STATUS_ON);
+		set_light_status(light, LIGHT_STATUS_ON);
 	}
 	light_dev->function(light);
 	return;
 }
 
-static void set_light_status_internal(light_t *light, light_status_t status)
+void set_light_status(light_t *light, light_status_t status)
 {
-	light->status = status;
 	if(status == LIGHT_STATUS_ON) {
 		wiced_gpio_output_high( light->relay_io);
+		light->status = LIGHT_STATUS_ON;
 		WPRINT_APP_INFO(("light_%d is on\n", light->light_no));
 	}
 	else if(status == LIGHT_STATUS_OFF) {
 		wiced_gpio_output_low( light->relay_io );
+		light->status = LIGHT_STATUS_OFF;
 		WPRINT_APP_INFO(("light_%d is off\n", light->light_no));
 	}
 	return;
 }
 
-static light_status_t get_light_status_internal(light_t *light)
+light_status_t get_light_status(light_t *light)
 {
-	light_status_t status;
+#if 0
 	wiced_bool_t gpio_status;
 	gpio_status = wiced_gpio_output_get( light->relay_io );
 	if(gpio_status == WICED_TRUE)
-		status = LIGHT_STATUS_ON;
+		light->status = LIGHT_STATUS_ON;
 	else
-		status = LIGHT_STATUS_OFF;
-	return status;
-}
-
-int set_light_status(uint8_t light_no, light_status_t status)
-{
-	int i;
-	
-	for(i = 0; i < sizeof(light_list)/sizeof(light_t); i++) {
-		if(light_no == light_list[i].light_no) {
-			set_light_status_internal(&light_list[i], status);
-			return 0;
-		}
-	}
-	return 1;
-}
-
-light_status_t get_light_status(uint8_t light_no)
-{
-	int i;
-	light_status_t light_status = LIGHT_STATUS_UNKNOWN;
-
-	for(i = 0; i < sizeof(light_list)/sizeof(light_t); i++) {
-		if(light_no == light_list[i].light_no) {
-			light_status = get_light_status_internal(&light_list[i]);
-		}
-	}
-	return light_status;
-}
-
-void get_lights_status(uint8_t *light_count, uint8_t *lights_status)
-{
-	int i;
-	//light_status_t light_status = LIGHT_STATUS_UNKNOWN;
-	
-	*light_count = 7;
-	for(i = 0; i < sizeof(light_list)/sizeof(light_t); i++) {
-		if(light_list[i].light_no >0 && light_list[i].light_no < 8) {
-			*lights_status |= (get_light_status_internal(&light_list[i]) & 0x01) << (light_list[i].light_no - 1);
-		}
-	}
+		light->status = LIGHT_STATUS_OFF;
+#endif
+	return light->status;
 }

@@ -90,6 +90,8 @@ wiced_result_t uart_receive_enable(wiced_thread_function_t function)
 void master_process_uart_msg(uint32_t arg)
 {
 	char c;
+	msg_t *msgp;
+	
 	while ( wiced_uart_receive_bytes( WICED_UART_2, &c, 1, WICED_NEVER_TIMEOUT ) == WICED_SUCCESS )
 	{
 		WPRINT_APP_INFO(("RcvChar=0x%02x\n", c));
@@ -110,14 +112,14 @@ void master_process_uart_msg(uint32_t arg)
 				if(uart_msg.msg_buf[0] == 0x42 && uart_msg.msg_buf[1] == 0x53 && uart_msg.msg_buf[2] == 0x54)
 				{
 					uart_msg.state = DATA_READY;
-					//if(this_dev.next_dev_ip != NULL) {
-					//if(cur_ctrl_flag == CTRL_FLAG_NONE) {
+					if(this_dev.net_mode == NET_MODE_CHAIN) {
 						WPRINT_APP_INFO(("forward uart msg via socket\n"));
+						msgp = (msg_t *)uart_msg.msg_buf;
+						msgp->flag = MSG_CONTROL_PANEL;
 						send_to_next_dev((char*)uart_msg.msg_buf, uart_msg.pos);
-						this_dev.cur_ctrl_flag = CTRL_FLAG_PANEL;
-					//}
-					//}
-					//forward_to_next_dev(uart_msg.msg_buf, uart_msg.data_len);
+					} else {
+						send_to_target_dev((char*)uart_msg.msg_buf, uart_msg.pos);
+					}
 				}
 				uart_msg.state = DATA_IDLE;
 				uart_msg.pos = 0;
