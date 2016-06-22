@@ -117,6 +117,8 @@ wiced_result_t curtain_init(curtain_t **curtain_dev, wiced_worker_thread_t* thre
 	wiced_dct_read_unlock( dct_app, WICED_TRUE );
 
 	*curtain_dev = curtain;	
+	wiced_gpio_init(RELAY_GPIO_1, OUTPUT_PUSH_PULL);
+	wiced_gpio_init(RELAY_GPIO_2, OUTPUT_PUSH_PULL);
 	//WPRINT_APP_INFO(("RELAY_GPIO_3 = %d\n", wiced_gpio_output_get(RELAY_GPIO_3)));
 	//WPRINT_APP_INFO(("RELAY_GPIO_4 = %d\n", wiced_gpio_output_get(RELAY_GPIO_4)));
 	return WICED_SUCCESS;
